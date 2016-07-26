@@ -54,6 +54,12 @@ class Stage {
 		js.Browser.window.addEventListener("mousewheel", onMouseWheel);
 		js.Browser.window.addEventListener("keydown", onKeyDown);
 		js.Browser.window.addEventListener("keyup", onKeyUp);
+		
+		// touch events
+		js.Browser.window.addEventListener("touchstart", onTouchStart);
+		js.Browser.window.addEventListener("touchmove", onTouchMove);
+		js.Browser.window.addEventListener("touchend", onTouchUp);
+		
 		canvas.addEventListener("mousedown", function(e) {
 			onMouseDown(e);
 			e.stopPropagation();
@@ -345,6 +351,8 @@ class Stage {
 
 	var curMouseX : Float = 0.;
 	var curMouseY : Float = 0.;
+	
+	var primaryTouchId : Null<Int> = null;
 
 	function get_width() {
 		return Math.round(canvasPos.width * js.Browser.window.devicePixelRatio);
@@ -355,11 +363,19 @@ class Stage {
 	}
 
 	function get_mouseX() {
-		return Math.round((curMouseX - canvasPos.left) * js.Browser.window.devicePixelRatio);
+		return clientPosToScreenPosX(curMouseX);
 	}
 
 	function get_mouseY() {
-		return Math.round((curMouseY - canvasPos.top) * js.Browser.window.devicePixelRatio);
+		return clientPosToScreenPosY(curMouseY);
+	}
+	
+	function clientPosToScreenPosX(clientX:Float) {
+		return Math.round((clientX - canvasPos.left) * js.Browser.window.devicePixelRatio);
+	}
+	
+	function clientPosToScreenPosY(clientY:Float) {
+		return Math.round((clientY - canvasPos.top) * js.Browser.window.devicePixelRatio);
 	}
 
 	function get_mouseLock() {
@@ -407,6 +423,43 @@ class Stage {
 		ev.keyCode = e.keyCode;
 		ev.charCode = e.charCode;
 		event(ev);
+	}
+	
+	function onTouchStart(e:js.html.TouchEvent) {
+		handleTouchEvent(EPush, e);
+	}
+	
+	function onTouchMove(e:js.html.TouchEvent) {
+		handleTouchEvent(EMove, e);
+	}
+	
+	function onTouchUp(e:js.html.TouchEvent) {
+		handleTouchEvent(ERelease, e);
+	}
+	
+	function handleTouchEvent(eventKind:hxd.Event.EventKind, e:js.html.TouchEvent) {
+		for (touch in e.changedTouches)
+		{
+			if (eventKind == ERelease && touch.identifier == primaryTouchId)
+			{
+				primaryTouchId = null;
+			}
+			
+			if (eventKind == EPush && primaryTouchId == null)
+			{
+				primaryTouchId = touch.identifier;
+			}
+			
+			if (touch.identifier == primaryTouchId)
+			{
+				curMouseX = touch.clientX;
+				curMouseY = touch.clientY;
+			}
+			
+			var ev = new Event(eventKind, clientPosToScreenPosX(touch.clientX), clientPosToScreenPosY(touch.clientY));
+			ev.touchId = touch.identifier;
+			event(ev);
+		}
 	}
 
 #elseif hxsdl
