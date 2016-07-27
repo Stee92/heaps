@@ -353,6 +353,9 @@ class Stage {
 	var curMouseY : Float = 0.;
 	
 	var primaryTouchId : Null<Int> = null;
+	
+	// Somehow JS triggers a touch and then a mousedown event. For simplicity we ignore the next mousedown event after a touch.
+	var ignoreMouseUntilNextNonTouchPush = false;
 
 	function get_width() {
 		return Math.round(canvasPos.width * js.Browser.window.devicePixelRatio);
@@ -388,24 +391,36 @@ class Stage {
 	}
 
 	function onMouseDown(e:js.html.MouseEvent) {
+		if (ignoreMouseUntilNextNonTouchPush)
+		{
+			ignoreMouseUntilNextNonTouchPush = false;
+			return;
+		}
+		
 		var ev = new Event(EPush, mouseX, mouseY);
 		if (e.button == 2) ev.button = 1;
 		event(ev);
 	}
 
 	function onMouseUp(e:js.html.MouseEvent) {
+		if (ignoreMouseUntilNextNonTouchPush) return;
+		
 		var ev = new Event(ERelease, mouseX, mouseY);
 		if (e.button == 2) ev.button = 1;
 		event(ev);
 	}
 
 	function onMouseMove(e:js.html.MouseEvent) {
+		if (ignoreMouseUntilNextNonTouchPush) return;
+		
 		curMouseX = e.clientX;
 		curMouseY = e.clientY;
 		event(new Event(EMove, mouseX, mouseY));
 	}
 
 	function onMouseWheel(e:js.html.MouseEvent) {
+		if (ignoreMouseUntilNextNonTouchPush) return;
+		
 		var ev = new Event(EWheel, mouseX, mouseY);
 		ev.wheelDelta = untyped -e.wheelDelta / 30.0;
 		event(ev);
@@ -426,6 +441,8 @@ class Stage {
 	}
 	
 	function onTouchStart(e:js.html.TouchEvent) {
+		ignoreMouseUntilNextNonTouchPush = true;
+		
 		handleTouchEvent(EPush, e);
 	}
 	
@@ -458,6 +475,7 @@ class Stage {
 			
 			var ev = new Event(eventKind, clientPosToScreenPosX(touch.clientX), clientPosToScreenPosY(touch.clientY));
 			ev.touchId = touch.identifier;
+			ev.isTouch = true;
 			event(ev);
 		}
 	}
